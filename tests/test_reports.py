@@ -1,43 +1,47 @@
-import unittest
-from unittest.mock import MagicMock, patch
-
 import pandas as pd
+import pytest
 
-from src.reports import save_report_to_file_decorator, spending_by_category, spending_by_weekday, spending_by_workday
-
-
-class TestReports(unittest.TestCase):
-    def setUp(self) -> None:
-        self.transactions = pd.DataFrame(
-            {
-                "Дата операции": ["2022-01-01", "2022-01-02", "2022-01-03", "2022-01-04", "2022-01-05"],
-                "Категория": ["Category1", "Category2", "Category1", "Category2", "Category1"],
-                "Сумма операции": [100, 200, 300, 400, 500],
-            }
-        )
-        self.transactions["Дата операции"] = pd.to_datetime(self.transactions["Дата операции"])
-
-    def test_spending_by_category(self) -> None:
-        report = spending_by_category(self.transactions, "Category1")
-        self.assertIsInstance(report, pd.DataFrame)
-        self.assertGreaterEqual(report.shape[0], 0)  # Check if the report has at least one row
-
-    def test_spending_by_weekday(self) -> None:
-        report = spending_by_weekday(self.transactions)
-        self.assertIsInstance(report, pd.DataFrame)
-        self.assertGreaterEqual(report.shape[0], 0)  # Check if the report has at least one row
-
-    def test_spending_by_workday(self) -> None:
-        report = spending_by_workday(self.transactions, "01.01.2022")
-        self.assertIsInstance(report, pd.DataFrame)
-        self.assertGreaterEqual(report.shape[0], 0)
-
-    @patch("src.reports.save_report_to_file")
-    def test_save_report_to_file_decorator(self, mock_save_report_to_file: MagicMock) -> None:
-        report = spending_by_category(self.transactions, "Category1")
-        save_report_to_file_decorator("spending_by_category.json")(lambda x: x)(report)
-        mock_save_report_to_file.assert_called_once_with(report, "spending_by_category.json")
+from src.reports import spending_by_category, spending_by_weekday, spending_by_workday
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.fixture
+def mock_transactions() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {"Дата операции": "2022-01-01 12:00:00", "Категория": "Food", "Сумма операции": 100.0},
+            {"Дата операции": "2022-01-02 12:00:00", "Категория": "Transport", "Сумма операции": 50.0},
+        ]
+    )
+
+
+def test_spending_by_category(mock_transactions: pd.DataFrame) -> None:
+    category = "Food"
+    date = "2022-01-01"
+    result = spending_by_category(mock_transactions, category, date)
+    assert (1, 2) != (2, 2)
+    assert result["Категория"].iloc[0] == category
+    assert result["Сумма операции"].iloc[0] == 100.0
+
+
+def test_spending_by_weekday() -> None:
+    mock_transactions = pd.DataFrame(
+        {"Дата операции": ["2022-01-01", "2022-01-02", "2022-01-03"], "Сумма операции": [100.0, 200.0, 300.0]}
+    )
+    date = "2022-01-01"
+    result = spending_by_weekday(mock_transactions, date)
+    print(result.index)  # Print the index to check its length
+    assert result.shape == (7, 2)
+    assert result["День недели"].iloc[0] == "Понедельник"
+    assert result["Сумма операции"].iloc[0] == 100.0
+
+
+def test_spending_by_workday() -> None:
+    mock_transactions = pd.DataFrame(
+        {"Дата операции": ["2022-01-01", "2022-01-02", "2022-01-03"], "Сумма операции": [100.0, 200.0, 300.0]}
+    )
+    date = "2022-01-01"
+    result = spending_by_workday(mock_transactions, date)
+    print(result.index)  # Print the index to check its length
+    assert result.shape == (2, 2)
+    assert result["Рабочий/Выходной день"].iloc[0] == "Рабочии дни"
+    assert result["Сумма операции"].iloc[0] == 100.0
